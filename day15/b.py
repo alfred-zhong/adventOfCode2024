@@ -7,10 +7,27 @@ from util import select_input_file
 
 
 class Dir(Enum):
-    UP = '^'
-    DOWN = 'v'
-    LEFT = '<'
-    RIGHT = '>'
+    UP = (-1, 0)
+    DOWN = (1, 0)
+    LEFT = (0, -1)
+    RIGHT = (0, 1)
+
+class Pos:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    
+    def __add__(self, other):
+        if isinstance(other, tuple):
+            return Pos(self.x + other[0], self.y + other[1])
+        elif isinstance(other, Pos):
+            return Pos(self.x + other.x, self.y + other.y)
+    
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+    
+    def __hash__(self):
+        return hash((self.x, self.y))
 
 
 class Map():
@@ -22,7 +39,7 @@ class Map():
         for x in range(len(self.matrix)):
             for y in range(len(self.matrix[x])):
                 if self.matrix[x][y] == '@':
-                    self.robot = (x, y)
+                    self.robot = Pos(x, y)
         
     def print(self):
         for line in self.matrix:
@@ -48,103 +65,57 @@ class Map():
         for x in range(len(self.matrix)):
             for y in range(len(self.matrix[x])):
                 if self.matrix[x][y] == '@':
-                    self.robot = (x, y)
+                    self.robot = Pos(x, y)
                 
     
-    def contains(self, x, y):
-        return 0 <= x < len(self.matrix) and 0 <= y < len(self.matrix[x])
+    def contains(self, pos: Pos):
+        return 0 <= pos.x < len(self.matrix) and 0 <= pos.y < len(self.matrix[pos.x])
     
-    def __find_ref(self, refs, x, y, dir: Dir):
-        if self.matrix[x][y] == '@':
-            refs.add((x, y))
+    def __find_ref(self, refs, pos: Pos, dir: Dir):
+        if self.matrix[pos.x][pos.y] == '@':
+            refs.add(pos)
 
-            if dir == Dir.UP:
-                self.__find_ref(refs, x-1, y, dir)
-            elif dir == Dir.DOWN:
-                self.__find_ref(refs, x+1, y, dir)
-            elif dir == Dir.LEFT:
-                self.__find_ref(refs, x, y-1, dir)
-            elif dir == Dir.RIGHT:
-                self.__find_ref(refs, x, y+1, dir)
-        elif self.matrix[x][y] == '[':
-            refs.add((x, y))
-            refs.add((x, y+1))
+            self.__find_ref(refs, pos + dir.value, dir)
+        elif self.matrix[pos.x][pos.y] == '[':
+            refs.add(pos)
+            refs.add(pos + (0, 1))
 
-            if dir == Dir.UP:
-                self.__find_ref(refs, x-1, y, dir)
-                self.__find_ref(refs, x-1, y+1, dir)
-            elif dir == Dir.DOWN:
-                self.__find_ref(refs, x+1, y, dir)
-                self.__find_ref(refs, x+1, y+1, dir)
-            elif dir == Dir.LEFT:
-                self.__find_ref(refs, x, y-1, dir)
-            elif dir == Dir.RIGHT:
-                self.__find_ref(refs, x, y+1, dir)
-        elif self.matrix[x][y] == ']':
-            refs.add((x, y-1))
-            refs.add((x, y))
+            self.__find_ref(refs, pos + dir.value, dir)
+            if dir == Dir.UP or dir == Dir.DOWN:
+                self.__find_ref(refs, pos + dir.value + (0, 1), dir)
+        elif self.matrix[pos.x][pos.y] == ']':
+            refs.add(pos)
+            refs.add(pos + (0, -1))
 
-            if dir == Dir.UP:
-                self.__find_ref(refs, x-1, y, dir)
-                self.__find_ref(refs, x-1, y-1, dir)
-            elif dir == Dir.DOWN:
-                self.__find_ref(refs, x+1, y, dir)
-                self.__find_ref(refs, x+1, y-1, dir)
-            elif dir == Dir.LEFT:
-                self.__find_ref(refs, x, y-1, dir)
-            elif dir == Dir.RIGHT:
-                self.__find_ref(refs, x, y+1, dir)
-            
+            self.__find_ref(refs, pos + dir.value, dir)
+            if dir == Dir.UP or dir == Dir.DOWN:
+                self.__find_ref(refs, pos + dir.value + (0, -1), dir)
+
     def __can_move(self, refs, dir: Dir) -> bool:
         for pos in refs:
-            if dir == Dir.UP:
-                if self.matrix[pos[0]-1][pos[1]] == '#':
-                    return False
-            elif dir == Dir.DOWN:
-                if self.matrix[pos[0]+1][pos[1]] == '#':
-                    return False
-            elif dir == Dir.LEFT:
-                if self.matrix[pos[0]][pos[1]-1] == '#':
-                    return False
-            elif dir == Dir.RIGHT:
-                if self.matrix[pos[0]][pos[1]+1] == '#':
-                    return False
+            next_pos = pos + dir.value
+            if self.matrix[next_pos.x][next_pos.y] == '#':
+                return False
         return True
 
     def __move(self, refs: set, dir: Dir):
         while len(refs) > 0:
             pos = refs.pop()
-            val = self.matrix[pos[0]][pos[1]]
-            if dir == Dir.UP and self.matrix[pos[0]-1][pos[1]] == '.':
-                self.matrix[pos[0]][pos[1]] = '.'
-                self.matrix[pos[0]-1][pos[1]] = val
+            val = self.matrix[pos.x][pos.y]
+
+            next_pos = pos + dir.value
+            if self.matrix[next_pos.x][next_pos.y] == '.':
+                self.matrix[pos.x][pos.y] = '.'
+                self.matrix[next_pos.x][next_pos.y] = val
 
                 if val == '@':
-                    self.robot = (pos[0]-1, pos[1])
-            elif dir == Dir.DOWN and self.matrix[pos[0]+1][pos[1]] == '.':
-                self.matrix[pos[0]][pos[1]] = '.'
-                self.matrix[pos[0]+1][pos[1]] = val
-
-                if val == '@':
-                    self.robot = (pos[0]+1, pos[1])
-            elif dir == Dir.LEFT and self.matrix[pos[0]][pos[1]-1] == '.':
-                self.matrix[pos[0]][pos[1]] = '.'
-                self.matrix[pos[0]][pos[1]-1] = val
-                
-                if val == '@':
-                    self.robot = (pos[0], pos[1]-1)
-            elif dir == Dir.RIGHT and self.matrix[pos[0]][pos[1]+1] == '.':
-                self.matrix[pos[0]][pos[1]] = '.'
-                self.matrix[pos[0]][pos[1]+1] = val
-                
-                if val == '@':
-                    self.robot = (pos[0], pos[1]+1)
+                    self.robot = next_pos
             else:
                 refs.add(pos)
             
     def move(self, dir: Dir):
         refs = set()
-        self.__find_ref(refs, self.robot[0], self.robot[1], dir)
+        self.__find_ref(refs, self.robot, dir)
         # print(f'Find refs: {refs}')
         if self.__can_move(refs, dir):
             self.__move(refs, dir)
@@ -179,7 +150,14 @@ with open(select_input_file(['example3.txt', 'example2.txt','input.txt'])) as f:
             map_lines.append(line.strip())
         else:
             for s in line.strip():
-                moves.append(Dir(s))
+                if s == '^':
+                    moves.append(Dir.UP)
+                elif s == 'v':
+                    moves.append(Dir.DOWN)
+                elif s == '<':
+                    moves.append(Dir.LEFT)
+                elif s == '>':
+                    moves.append(Dir.RIGHT)
         line = f.readline()
     map = Map(map_lines)
     
