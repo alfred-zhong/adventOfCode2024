@@ -20,26 +20,34 @@ class Map():
             if found:
                 break
     
-    def get_best_score(self):
-        # (costs, x, y, dx, dy)
-        queue = [(0, *self.start, 0, 1)]
+    def get_best_points(self):
+        points = set()
+        best_score = float('inf')
+        # (costs, x, y, dx, dy, path)
+        queue = [(0, *self.start, 0, 1, [self.start])]
         seen = set()
         while queue:
-            costs, x, y, dx, dy = heapq.heappop(queue)
+            costs, x, y, dx, dy, path = heapq.heappop(queue)
             seen.add((x, y, dx, dy))
             # print(f'visiting: ({x}, {y})')
             if self.grid[x][y] == 'E':
-                return costs
-            
+                if costs <= best_score:
+                    best_score = costs
+                    for point in path:
+                        points.add(point)
+                else:
+                    break
             if self.grid[x + dx][y + dy] != '#' and (x + dx, y + dy, dx, dy) not in seen:
-                heapq.heappush(queue, (costs + 1, x + dx, y + dy, dx, dy))
+                heapq.heappush(queue, (costs + 1, x + dx, y + dy, dx, dy, path + [(x + dx, y + dy)]))
             for new_dx, new_dy in [(-dy, dx), (dy, -dx)]:
                 if self.grid[x + new_dx][y + new_dy] != '#' and (x, y, new_dx, new_dy) not in seen:
-                    heapq.heappush(queue, (costs + 1000, x, y, new_dx, new_dy))
+                    heapq.heappush(queue, (costs + 1000, x, y, new_dx, new_dy, path))
+        return points
     
+
     
 
 with open(select_input_file(['example1.txt', 'example2.txt','input.txt'])) as f:
     map = Map(f.readlines())
 
-print(f'costs: {map.get_best_score()}')
+print(len(map.get_best_points()))
