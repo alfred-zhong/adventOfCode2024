@@ -58,19 +58,79 @@ class Unit():
             elif ins == Instruction.CDV:
                 self.c = self.a // (2 ** self.__get_data(combo))
             
-            print(f'a: {self.a}, b: {self.b}, c: {self.c}')
+            # print(f'a: {self.a}, b: {self.b}, c: {self.c}')
             self.i += 2
+    
+    @property
+    def out_str(self) -> str:
+        return ','.join(map(str, self.out))
 
 
     
-with open(select_input_file(['example1.txt', 'example2.txt', 'example3.txt', 'input.txt'])) as f:
+with open(select_input_file(['example3.txt', 'input.txt'])) as f:
     a = int(f.readline().strip().split(":")[1])
     b = int(f.readline().strip().split(":")[1])
     c = int(f.readline().strip().split(":")[1])
     f.readline()
     program = [int(x) for x in f.readline().strip().split(":")[1].split(',')]
 
-    unit = Unit(a, b, c, program)
+program_str = ','.join([str(x) for x in program])
+print(f'program len: {len(program_str)}')
 
+'''
+a = int(1e20)
+unit = Unit(a, b, c, program)
 unit.run()
-print(','.join(map(str, unit.out)))
+print(f'a = {a}, out: {unit.out_str}')
+
+a = int(1e20) + 20000
+unit = Unit(a, b, c, program)
+unit.run()
+print(f'a = {a}, out: {unit.out_str}')
+'''
+
+'''
+a = int(1 << 48)
+unit = Unit(a, b, c, program)
+unit.run()
+print(f'a = {a}, out len: {len(unit.out_str)}')
+
+print((1 << 48) - (1 << 45))
+'''
+
+'''
+start, end = 1, int(1e20)
+while start <= end:
+    print(f'start: {start}, end: {end}')
+    mid = (start + end) // 2
+    unit = Unit(mid, b, c, program)
+    unit.run()
+    if len(unit.out_str) == len(program_str):
+        print(f'out: {unit.out_str}')
+        if unit.out_str == program_str:
+            print(f'a = {mid}, out: {unit.out_str}')
+            break
+        elif unit.out_str < program_str:
+            start = mid
+        else:
+            end = mid
+    elif len(unit.out_str) < len(program_str):
+        start = mid
+    else:
+        end = mid
+'''
+
+candidates = [0]
+for l in range(len(program)):
+    print(candidates)
+    next_candicates = []
+    for c in candidates:
+        for i in range(8):
+            target = (c << 3) + i
+            unit = Unit(target, b, c, program)
+            unit.run()
+            if unit.out == program[-l-1:]:
+                next_candicates.append(target)
+    candidates = next_candicates
+
+print(min(candidates))
